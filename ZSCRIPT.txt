@@ -1,0 +1,27 @@
+version "4.5"
+
+#include "ZScript/bmp_base.zsc"
+
+
+class BMPEvents : EventHandler
+{
+	BMP_Data bmp;
+	override void WorldLoaded(WorldEvent e)
+	{
+		bmp = BMP_Reader.ReadBMP("senbi");
+	}
+	
+	override void RenderOverlay(RenderEvent e)
+	{
+		if(!bmp) return;
+		
+		vector2 pos = (100,100);
+		for(int y = 0; y < bmp.height; y++)
+		{
+			for(int x = 0; x < bmp.width; x++)
+			{
+				Screen.Dim(bmp.GetPixel(x,y), 1.0, pos.x+x,pos.y+y, 1,1);
+			}
+		}
+	}
+}

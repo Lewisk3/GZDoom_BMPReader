@@ -1,0 +1,138 @@
+class BMP_Reader abstract
+{
+	static int readInt(string data, uint offset, uint bytes = 4)
+	{
+		int x;
+		for(int i = 0; i < bytes; i++)
+		{
+			uint byte = data.ByteAt(offset + i);
+			x |= byte << i*8;
+		}
+		return x;
+	}
+	
+	static string GetBytes(string data, uint offset, uint bytes)
+	{
+		return data.Mid(offset, bytes);
+	}
+	
+	static int FindLumps(string lmp, out int index)
+	{
+		return (index = Wads.FindLump(lmp, index + 1));
+	}
+	
+	static string GetFileData(string file)
+	{
+		int lump = -1;
+		String data;
+		while(FindLumps(file, lump) != -1)
+			data = Wads.ReadLump(lump);
+			
+		return data;
+	}
+	
+	static BMP_Data ReadBMP(string bmpfile)
+	{
+		BMP_Data bmp = new("BMP_Data");
+		string bmpdata = GetFileData(bmpfile);
+		
+		// Read header.
+		string bmp_header = GetBytes(bmpdata, 0, 14);
+		if(GetBytes(bmp_header, 0, 2) != "BM") 
+		{
+			console.printf("Invalid BMP header, file is corrupt or isn't a BMP!");
+			bmp.Destroy();
+			return NULL;
+		}
+		
+		// Read DIB
+		string bmp_info = GetBytes(bmpdata, 14, 40);
+		double dib_size = readInt(bmp_info, 0);
+		if(dib_size != 40) 
+		{
+			console.printf("BMP header isn't supported. (%d bytes)", dib_size);
+			bmp.Destroy();
+			return NULL;
+		}
+		
+		// Get BMP info
+		bmp.filesize = readInt(bmpdata, 2);
+		bmp.width  = readInt(bmp_info, 4);
+		bmp.height = readInt(bmp_info, 8);
+		bmp.bpp = readInt(bmp_info, 14, 2);
+		
+		// Check compression
+		uint compression = readInt(bmp_info, 16);
+		if(compression != 0)
+		{
+			console.printf("BMP is compressed, currently only uncompressed BMPs are supported.");
+			bmp.Destroy();
+			return NULL;
+		}
+		
+		// Get pixels
+		bmp.colors = readInt(bmp_info, 32);
+		if(!bmp.colors) bmp.isRGB = true;
+		bmp.pixels.Resize(bmp.width * bmp.height);
+		
+		uint pixel_start  = readInt(bmpdata, 10);
+		uint pixelbytes = bmp.bpp / 8; 
+		uint pixels_size  = bmp.width * bmp.height * pixelbytes;
+		string pixel_data = GetBytes(bmpdata, pixel_start, pixels_size);
+		
+		// Build palette
+		if(!bmp.isRGB)
+		{
+			bmp.palette.Resize(bmp.colors);
+			uint pal_start = 54;
+			uint pal_end   = readInt(bmpdata, 10);
+			string pal = GetBytes(bmpdata, pal_start, pal_end-pal_start);
+			for(int i = 0; i < bmp.colors; i++)
+			{
+				Color col = readInt(pal, i*4);
+				bmp.palette[i] = col;
+			}
+		}
+		
+		// Resolve colors
+		for(int yy = 0; yy < bmp.height; yy++)
+		{
+			for(int xx = 0; xx < bmp.width; xx++)
+			{
+				Color col;
+				double offset = ((yy * bmp.width) + xx) * pixelbytes;
+				uint pixel = readInt(pixel_data, offset, pixelbytes);
+				if(bmp.isRGB) 
+				{
+					col = pixel;
+				}
+				else
+				{
+					col = bmp.palette[pixel];
+				}
+				bmp.SetPixel(xx, (bmp.height - 1) - yy, col);
+			}
+		}
+		return bmp;
+	}
+}
+
+class BMP_Data 
+{
+	bool isRGB;
+	double filesize;
+	uint bpp, colors;
+	double width, height;
+	Array<Color> palette;
+	Array<Color> pixels;
+	
+	void SetPixel(int x, int y, Color col)
+	{
+		pixels[(y * width) + x] = col;
+	}
+	
+	Color GetPixel(int x, int y)
+	{
+		return pixels[(y * width) + x];
+	}
+}
