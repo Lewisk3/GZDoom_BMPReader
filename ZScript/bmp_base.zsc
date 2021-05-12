@@ -16,19 +16,10 @@ class BMP_Reader abstract
 		return data.Mid(offset, bytes);
 	}
 	
-	static int FindLumps(string lmp, out int index)
-	{
-		return (index = Wads.FindLump(lmp, index + 1));
-	}
-	
 	static string GetFileData(string file)
 	{
-		int lump = -1;
-		String data;
-		while(FindLumps(file, lump) != -1)
-			data = Wads.ReadLump(lump);
-			
-		return data;
+		int lump = Wads.CheckNumForFullName(file);
+		return Wads.ReadLump(lump);
 	}
 	
 	static BMP_Data ReadBMP(string bmpfile)

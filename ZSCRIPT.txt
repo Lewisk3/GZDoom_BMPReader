@@ -8,7 +8,7 @@ class BMPEvents : EventHandler
 	BMP_Data bmp;
 	override void WorldLoaded(WorldEvent e)
 	{
-		bmp = BMP_Reader.ReadBMP("senbi");
+		bmp = BMP_Reader.ReadBMP("Graphics/snebi.bmp");
 	}
 	
 	override void RenderOverlay(RenderEvent e)
