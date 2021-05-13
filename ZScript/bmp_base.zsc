@@ -1,12 +1,25 @@
 class BMP_Reader abstract
 {
-	static int readInt(string data, uint offset, uint bytes = 4)
+	static uint readInt(string data, double offset, double bytes = 4)
 	{
 		int x;
-		for(int i = 0; i < bytes; i++)
+		if(bytes >= 1)
 		{
-			uint byte = data.ByteAt(offset + i);
-			x |= byte << i*8;
+			for(int i = 0; i < bytes; i++)
+			{
+				uint byte = data.ByteAt(offset + i);
+				x |= byte << i*8;
+			}
+		}
+		else if(bytes == 0.5)
+		{
+			uint byte = data.ByteAt(floor(offset));
+			
+			double frac = offset - floor(offset);
+			if(frac == 0)
+				x = byte >> 4;
+			else
+				x = byte & 0x0F;
 		}
 		return x;
 	}
@@ -67,41 +80,44 @@ class BMP_Reader abstract
 		bmp.pixels.Resize(bmp.width * bmp.height);
 		
 		uint pixel_start  = readInt(bmpdata, 10);
-		uint pixelbytes = bmp.bpp / 8; 
+		double pixelbytes = bmp.bpp / 8.; 
 		uint pixels_size  = bmp.width * bmp.height * pixelbytes;
 		string pixel_data = GetBytes(bmpdata, pixel_start, pixels_size);
 		
 		// Build palette
 		if(!bmp.isRGB)
 		{
+			bmp.pal_pixels.Resize(bmp.width * bmp.height);
 			bmp.palette.Resize(bmp.colors);
 			uint pal_start = 54;
 			uint pal_end   = readInt(bmpdata, 10);
 			string pal = GetBytes(bmpdata, pal_start, pal_end-pal_start);
 			for(int i = 0; i < bmp.colors; i++)
 			{
-				Color col = readInt(pal, i*4);
+				Color col = readInt(pal, (i*4));	
 				bmp.palette[i] = col;
 			}
 		}
-		
+						
 		// Resolve colors
+		double offset = 0;
 		for(int yy = 0; yy < bmp.height; yy++)
 		{
 			for(int xx = 0; xx < bmp.width; xx++)
 			{
 				Color col;
-				double offset = ((yy * bmp.width) + xx) * pixelbytes;
 				uint pixel = readInt(pixel_data, offset, pixelbytes);
 				if(bmp.isRGB) 
 				{
 					col = pixel;
+					bmp.SetPixel(xx, (bmp.height - 1) - yy, col);
 				}
 				else
 				{
-					col = bmp.palette[pixel];
+					uint corrY = (bmp.height - 1) - yy;
+					bmp.pal_pixels[(corrY * bmp.width) + xx] = pixel;
 				}
-				bmp.SetPixel(xx, (bmp.height - 1) - yy, col);
+				offset += pixelbytes;
 			}
 		}
 		return bmp;
@@ -115,15 +131,45 @@ class BMP_Data
 	uint bpp, colors;
 	double width, height;
 	Array<Color> palette;
+	Array<uint> pal_pixels;
 	Array<Color> pixels;
 	
 	void SetPixel(int x, int y, Color col)
 	{
-		pixels[(y * width) + x] = col;
+		if(isRGB)
+		{
+			pixels[(y * width) + x] = col;
+		}
+		else
+		{
+			console.printf("SetPixel doesn't work on paletted BMPs, use SetPixelIndex instead.");
+		}
+	}
+	
+	void AdjustPaletteColors(double rmax, double gmax, double bmax)
+	{
+		for(int c = 0; c < palette.Size(); c++)
+		{
+			Color col = palette[c];
+			palette[c] = Color(int(col.r * rmax), int(col.g * gmax), int(col.b * bmax));
+		}
+	}
+	
+	void SetPixelIndex(int x, int y, uint pal_index)
+	{
+		pal_pixels[(y * width) + x] = pal_index;
+	}
+	
+	void SetPaletteColor(uint index, Color col)
+	{
+		palette[index] = col;
 	}
 	
 	Color GetPixel(int x, int y)
 	{
-		return pixels[(y * width) + x];
+		if(isRGB)
+			return pixels[(y * width) + x];
+		else
+			return palette[pal_pixels[(y * width) + x]];
 	}
 }

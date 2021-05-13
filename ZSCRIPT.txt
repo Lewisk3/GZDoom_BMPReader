@@ -6,22 +6,91 @@ version "4.5"
 class BMPEvents : EventHandler
 {
 	BMP_Data bmp;
+	ui double fadeout;
+	
+	ui double deltatime;
+	ui double prevMS;
+	ui double vib;
+	
 	override void WorldLoaded(WorldEvent e)
 	{
-		bmp = BMP_Reader.ReadBMP("Graphics/snebi.bmp");
+		bmp = BMP_Reader.ReadBMP("Graphics/DOOM.bmp");
+	}
+	
+	ui void DrawBMP(BMP_Data img, vector2 pos, double scale, double spacing = 1., double alpha = 1., bool shadecolors = true, double vibrancy = 1.)
+	{
+		vector2 rel = (
+			Screen.getWidth() / 1920.,
+			Screen.getHeight() / 1080.
+		);
+			
+		vector2 bmp_mid = (
+			(bmp.width * scale) / 2.,
+			(bmp.height * scale) / 2.
+		);
+		vector2 pixpos = (
+			(pos.x - bmp_mid.x) * rel.x, 
+			(pos.y - bmp_mid.y) * rel.y
+		);
+		
+		vector2 fscale = (
+			(scale * rel.x),
+			(scale * rel.y)
+		);
+		fscale /= spacing;
+				
+		for(int y = 0; y < bmp.height; y++)
+		{
+			for(int x = 0; x < bmp.width; x++)
+			{	
+				Color pix = bmp.GetPixel(x,y);
+				
+				double intensity = ((pix.r + pix.g + pix.b) / 3.) / 0xFF;
+				intensity *= vibrancy;
+				
+				pix = Color(
+					int(pix.r * intensity),
+					int(pix.g * intensity), 
+					int(pix.b * intensity)
+				);
+				
+				vector2 drawpos = (
+					pixpos.x + (x*fscale.x) * spacing,
+					pixpos.y + (y*fscale.y) * spacing
+				);
+
+				Screen.Dim(pix, alpha, 
+					drawpos.x, drawpos.y, ceil(fscale.x), ceil(fscale.y)
+				);
+			}
+		}
+	
 	}
 	
 	override void RenderOverlay(RenderEvent e)
 	{
-		if(!bmp) return;
-		
-		vector2 pos = (100,100);
-		for(int y = 0; y < bmp.height; y++)
+		// Keep track of time, always.
+		if(!prevMS)
 		{
-			for(int x = 0; x < bmp.width; x++)
-			{
-				Screen.Dim(bmp.GetPixel(x,y), 1.0, pos.x+x,pos.y+y, 1,1);
-			}
+			prevMS = MSTime();
+			return;
 		}
+		double ftime = MSTime()-prevMS;
+		prevMS = MSTime();
+		double dtime = 1000.0 / 60.0;
+		deltatime = (ftime/dtime);
+		
+		if(!bmp) return;
+		vector2 mid = (1920/2., 1080/2.);
+		
+		if(level.maptime >= 35) 
+		{
+			fadeout += 0.008 * deltatime;
+			vib += 0.010 * deltatime;
+		}
+		double fade = 1.0 - fadeout;
+		
+		DrawBMP(bmp, mid, 5., 1, fade, true, 2.0 - vib);
+		
 	}
 }
