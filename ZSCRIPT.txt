@@ -11,13 +11,14 @@ class BMPEvents : EventHandler
 	ui double deltatime;
 	ui double prevMS;
 	ui double vib;
+	ui double rot;
 	
 	override void WorldLoaded(WorldEvent e)
 	{
 		bmp = BMP_Reader.ReadBMP("Graphics/DOOM.bmp");
 	}
 	
-	ui void DrawBMP(BMP_Data img, vector2 pos, double scale, double spacing = 1., double alpha = 1., bool shadecolors = true, double vibrancy = 1.)
+	ui void DrawBMP(BMP_Data img, vector2 pos, double scale, double spacing = 1., double alpha = 1., bool shadecolors = true, double vibrancy = 1.,double rotation = 0)
 	{
 		vector2 rel = (
 			Screen.getWidth() / 1920.,
@@ -38,13 +39,13 @@ class BMPEvents : EventHandler
 			(scale * rel.y)
 		);
 		fscale /= spacing;
-				
+		
 		for(int y = 0; y < bmp.height; y++)
 		{
 			for(int x = 0; x < bmp.width; x++)
 			{	
 				Color pix = bmp.GetPixel(x,y);
-				
+								
 				double intensity = ((pix.r + pix.g + pix.b) / 3.) / 0xFF;
 				intensity *= vibrancy;
 				
@@ -54,14 +55,35 @@ class BMPEvents : EventHandler
 					int(pix.b * intensity)
 				);
 				
+				vector2 imgpos = (
+					x*fscale.x,
+					y*fscale.y
+				);
+				
+				if(rotation) 
+				{
+					vector2 rotmid = (
+						(bmp.width*scale) / 2.,
+						(bmp.height*scale) / 2.
+					);
+					rotmid.x *= rel.x;
+					rotmid.y *= rel.y;
+					
+					imgpos -= rotmid;
+					imgpos = Actor.RotateVector(imgpos, rotation);
+					imgpos += rotmid;
+				}
+				
 				vector2 drawpos = (
-					pixpos.x + (x*fscale.x) * spacing,
-					pixpos.y + (y*fscale.y) * spacing
+					pixpos.x + imgpos.x * spacing,
+					pixpos.y + imgpos.y * spacing
+				);
+				vector2 drawend = (
+					ceil(fscale.x),
+					ceil(fscale.y)
 				);
 
-				Screen.Dim(pix, alpha, 
-					drawpos.x, drawpos.y, ceil(fscale.x), ceil(fscale.y)
-				);
+				Screen.Dim(pix, alpha, drawpos.x, drawpos.y, drawend.x, drawend.y);
 			}
 		}
 	
@@ -85,12 +107,13 @@ class BMPEvents : EventHandler
 		
 		if(level.maptime >= 35) 
 		{
-			fadeout += 0.008 * deltatime;
-			vib += 0.010 * deltatime;
+			//fadeout += 0.008 * deltatime;
+			//vib += 0.010 * deltatime;
+			rot += 2 * deltatime;
 		}
 		double fade = 1.0 - fadeout;
 		
-		DrawBMP(bmp, mid, 5., 1, fade, true, 2.0 - vib);
+		DrawBMP(bmp, mid, 5., 1, fade, true, 2.0 - vib, rotation: rot);
 		
 	}
 }
